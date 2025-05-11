@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import math
@@ -93,12 +94,12 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("### 📍 Zone géographique de génération")
-    lat_min = st.number_input("Latitude min", value=50.60)
-    lat_max = st.number_input("Latitude max", value=50.70)
-    lon_min = st.number_input("Longitude min", value=3.00)
-    lon_max = st.number_input("Longitude max", value=3.15)
-    n_clients = st.slider("Nombre de clients aléatoires", 1, 100, 5)
-    n_vehicules = st.slider("Nombre de véhicules", 1, 10, 3)
+    lat_min = st.number_input("Latitude min", value=50.610)
+    lat_max = st.number_input("Latitude max", value=50.655)
+    lon_min = st.number_input("Longitude min", value=3.01)
+    lon_max = st.number_input("Longitude max", value=3.09)
+    n_clients = st.slider("Nombre de clients aléatoires", 1, 100, 10)
+    n_vehicules = st.slider("Nombre de véhicules", 1, 10, 2)
 
 with col2:
     st.markdown("### ➕ Ajouter manuellement un client")
