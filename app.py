@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import math
@@ -6,14 +5,10 @@ import random
 import matplotlib.pyplot as plt
 import requests
 
-# Fonction de géocodage via l’API OpenStreetMap Nominatim (sans geopy)
+# Fonction de géocodage via OpenStreetMap (sans geopy)
 def geocode_address(address):
-    url = f"https://nominatim.openstreetmap.org/search"
-    params = {
-        'q': address,
-        'format': 'json',
-        'limit': 1
-    }
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {'q': address, 'format': 'json', 'limit': 1}
     headers = {'User-Agent': 'VRP-App'}
     response = requests.get(url, params=params, headers=headers)
     data = response.json()
@@ -21,7 +16,7 @@ def geocode_address(address):
         return float(data[0]['lat']), float(data[0]['lon'])
     return None, None
 
-# Distance approximative
+# Calcul de distances
 def distance_approx(lat1, lon1, lat2, lon2):
     lat_moy = math.radians((lat1 + lat2) / 2)
     dx = (lon2 - lon1) * 111320 * math.cos(lat_moy)
@@ -36,15 +31,12 @@ def cout_solution(solution, localisations, omega=5):
     return total
 
 def initialiser_solution(n_clients, n_vehicules):
-    clients = list(range(1, n_clients + 1))  # exclut dépôt
+    clients = list(range(1, n_clients + 1))
     random.shuffle(clients)
     solution = []
     for i in range(n_vehicules):
         route_clients = clients[i::n_vehicules]
-        if route_clients:
-            solution.append([0] + route_clients + [0])
-        else:
-            solution.append([0, 0])
+        solution.append([0] + route_clients + [0] if route_clients else [0, 0])
     return solution
 
 def crossover(parent1, parent2):
@@ -85,57 +77,70 @@ def plot_solution(solution, localisations):
         lon = [localisations[node][1] for node in route]
         plt.plot(lon, lat, marker='o', label=f"Véhicule {i+1}")
     plt.scatter([depot[1]], [depot[0]], c='red', label='Dépôt', s=100)
-    plt.title("Tournées optimisées (Génétique + Dépôt)")
+    plt.title("🗺️ Tournées optimisées (Génétique)")
     plt.xlabel("Longitude")
     plt.ylabel("Latitude")
     plt.legend()
     st.pyplot(plt.gcf())
     plt.clf()
 
-# Interface Streamlit
-st.title("Optimisation de tournées VRP (version interactive sans geopy)")
-st.markdown("Utilisation de l’algorithme génétique et géocodage manuel (OpenStreetMap)")
+# ----------- Interface améliorée Streamlit -----------
+st.set_page_config(page_title="Optimisation VRP", layout="wide")
+st.markdown("# 🚚 Optimisation de Tournées de Véhicules")
+st.markdown("Optimisez vos trajets à partir d'une zone, d'adresses ou de coordonnées. Application 100% en ligne.")
 
-n_clients = st.number_input("Nombre de clients aléatoires à générer", min_value=1, max_value=100, value=5)
-n_vehicules = st.slider("Nombre de véhicules", 1, 10, 3)
+col1, col2 = st.columns(2)
 
-lat_min = st.number_input("Latitude min", value=50.60)
-lat_max = st.number_input("Latitude max", value=50.70)
-lon_min = st.number_input("Longitude min", value=3.00)
-lon_max = st.number_input("Longitude max", value=3.15)
+with col1:
+    st.markdown("### 📍 Zone géographique de génération")
+    lat_min = st.number_input("Latitude min", value=50.60)
+    lat_max = st.number_input("Latitude max", value=50.70)
+    lon_min = st.number_input("Longitude min", value=3.00)
+    lon_max = st.number_input("Longitude max", value=3.15)
+    n_clients = st.slider("Nombre de clients aléatoires", 1, 100, 5)
+    n_vehicules = st.slider("Nombre de véhicules", 1, 10, 3)
 
+with col2:
+    st.markdown("### ➕ Ajouter manuellement un client")
+    lat_manual = st.number_input("Latitude client", key="lat_manuel")
+    lon_manual = st.number_input("Longitude client", key="lon_manuel")
+    add_manual = st.button("✅ Ajouter ce client")
+
+    st.markdown("### 🏠 Ajouter un client par adresse")
+    adresse = st.text_input("Entrez une adresse complète")
+    geo_btn = st.button("🔎 Géocoder et ajouter")
+
+# Initialisation des clients
+clients = {}
 if lat_max <= lat_min or lon_max <= lon_min:
-    st.error("Les bornes géographiques doivent être cohérentes (max > min).")
+    st.error("La zone géographique n'est pas valide (max doit être > min)")
 else:
     depot = ((lat_min + lat_max) / 2, (lon_min + lon_max) / 2)
-    clients = {0: depot}
-
+    clients[0] = depot
     for i in range(1, n_clients + 1):
-        lat = random.uniform(lat_min, lat_max)
-        lon = random.uniform(lon_min, lon_max)
-        clients[i] = (lat, lon)
+        clients[i] = (
+            random.uniform(lat_min, lat_max),
+            random.uniform(lon_min, lon_max)
+        )
 
-    with st.expander("Ajouter manuellement un client (coordonnées)"):
-        lat = st.number_input("Latitude client", key="lat_manuel")
-        lon = st.number_input("Longitude client", key="lon_manuel")
-        if st.button("Ajouter ce client"):
-            clients[len(clients)] = (lat, lon)
-            st.success("Client ajouté.")
+# Gestion des ajouts manuels
+if add_manual:
+    clients[len(clients)] = (lat_manual, lon_manual)
+    st.success("Client ajouté manuellement !")
 
-    with st.expander("Ajouter un client par adresse"):
-        address = st.text_input("Adresse")
-        if st.button("Géocoder l'adresse et ajouter"):
-            lat, lon = geocode_address(address)
-            if lat and lon:
-                clients[len(clients)] = (lat, lon)
-                st.success(f"Client ajouté à partir de l’adresse : ({lat}, {lon})")
-            else:
-                st.error("Adresse introuvable.")
+if geo_btn:
+    lat, lon = geocode_address(adresse)
+    if lat and lon:
+        clients[len(clients)] = (lat, lon)
+        st.success(f"Client ajouté : ({lat:.5f}, {lon:.5f})")
+    else:
+        st.error("Adresse introuvable")
 
-    if st.button("Lancer l'optimisation"):
-        n_clients_effectifs = len(clients) - 1
-        solution, cout = algo_genetique(clients, n_clients_effectifs, n_vehicules)
-        st.success(f"Coût total : {round(cout, 2)}")
-        for i, route in enumerate(solution):
-            st.write(f"Véhicule {i+1} : {route}")
-        plot_solution(solution, clients)
+# Lancement de l'optimisation
+if st.button("🚀 Lancer l'optimisation"):
+    nb = len(clients) - 1
+    sol, c = algo_genetique(clients, nb, n_vehicules)
+    st.success(f"✅ Coût total de la solution : {round(c, 2)}")
+    for i, route in enumerate(sol):
+        st.markdown(f"**Véhicule {i+1}** : {route}")
+    plot_solution(sol, clients)
